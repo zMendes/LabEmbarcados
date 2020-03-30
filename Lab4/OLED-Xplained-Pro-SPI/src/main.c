@@ -4,6 +4,13 @@
 #include "gfx_mono_text.h"
 #include "sysfont.h"
 
+
+// Config LED
+#define LED_PIO           PIOC                 
+#define LED_PIO_ID        12                  
+#define LED_PIO_IDX       8                   
+#define LED_PIO_IDX_MASK  (1 << LED_PIO_IDX)
+
 #define LED1_PIO			PIOA
 #define LED1_PIO_ID			ID_PIOA
 #define LED1_PIO_IDX		0
@@ -23,6 +30,9 @@
 volatile char flag_rtc = 0;
 volatile Bool f_rtt_alarme = false;
 volatile char flag_tc = 0;
+volatile char flag_tc2 = 0;
+volatile char second_flag = 0;
+
 
 
 typedef struct  {
@@ -54,6 +64,12 @@ void pisca_led(int n, int t, char led){
     			pio_set(LED3_PIO, LED3_PIO_IDX_MASK);
     			delay_ms(t);
 				}
+		case 0:
+				pio_clear(LED_PIO, LED_PIO_IDX_MASK);
+	    		delay_ms(t);
+    			pio_set(LED_PIO, LED_PIO_IDX_MASK);
+    			delay_ms(t);
+			break;
 		default:
 			break;
 		}
@@ -89,6 +105,41 @@ void TC1_Handler(void){
 	/** Muda o estado do LED */
 	flag_tc = 1;
 }
+void TC4_Handler(void){
+	volatile uint32_t ul_dummy;
+
+	/****************************************************************
+	* Devemos indicar ao TC que a interrupção foi satisfeita.
+	******************************************************************/
+	ul_dummy = tc_get_status(TC1, 1);
+
+	/* Avoid compiler warning */
+	UNUSED(ul_dummy);
+
+	/** Muda o estado do LED */
+	flag_tc2 = 1;
+}
+
+void update_display(calendar time){
+	
+	char hora[3];
+	char min[3];
+	char seg[3];
+
+	if (time.seccond > 59){
+		time.seccond = time.seccond % 60;
+		gfx_mono_draw_string("               ", 10,16, &sysfont);
+
+	}
+	sprintf(hora,"%lu", time.hour);
+	sprintf(min,"%lu", time.minute);
+	sprintf(seg,"%lu", time.seccond);
+	char e[] = {hora[0],hora[1],':',min[0],min[1],':',seg[0],seg[1]};
+	gfx_mono_draw_string(e, 10,16, &sysfont);
+	//gfx_mono_draw_filled_circle(104, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
+
+	
+}
 
 void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
 	uint32_t ul_div;
@@ -122,12 +173,9 @@ void RTC_Handler(void)
 {
 	uint32_t ul_status = rtc_get_status(RTC);
 
-	/*
-	*  Verifica por qual motivo entrou
-	*  na interrupcao, se foi por segundo
-	*  ou Alarm
-	*/
 	if ((ul_status & RTC_SR_SEC) == RTC_SR_SEC) {
+		
+		second_flag = 1;
 		rtc_clear_status(RTC, RTC_SCCR_SECCLR);
 	}
 	
@@ -141,6 +189,7 @@ void RTC_Handler(void)
 	rtc_clear_status(RTC, RTC_SCCR_TIMCLR);
 	rtc_clear_status(RTC, RTC_SCCR_CALCLR);
 	rtc_clear_status(RTC, RTC_SCCR_TDERRCLR);
+
 }
 
 void RTC_init(Rtc *rtc, uint32_t id_rtc, calendar t, uint32_t irq_type){
@@ -162,6 +211,7 @@ void RTC_init(Rtc *rtc, uint32_t id_rtc, calendar t, uint32_t irq_type){
 
 	/* Ativa interrupcao via alarme */
 	rtc_enable_interrupt(rtc,  irq_type);
+
 }
 
 static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
@@ -210,29 +260,38 @@ int main (void)
 	delay_init();
 	LED_init(1);
 	WDT->WDT_MR = WDT_MR_WDDIS;
+	
+	calendar now = {2020, 3, 27,5 ,12, 22, 55};
+	RTC_init(RTC, ID_RTC, now, RTC_IER_ALREN | RTC_IER_SECEN);
 
-	calendar rtc_initial = {2018, 3, 19, 12, 15, 45 ,1};
-	RTC_init(RTC, ID_RTC, rtc_initial, RTC_IER_ALREN);
-  
 
   // Init OLED
 	gfx_mono_ssd1306_init();
-  	gfx_mono_draw_filled_circle(20, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
-  	gfx_mono_draw_string("mundo", 50,16, &sysfont);
-
 	f_rtt_alarme = true;
-  
+	
 
-	rtc_set_date_alarm(RTC, 1, rtc_initial.month, 1, rtc_initial.day);
-	rtc_set_time_alarm(RTC, 1, rtc_initial.hour, 1, rtc_initial.minute, 1, rtc_initial.seccond + 20);
+
+	gfx_mono_draw_string("          ", 10,16, &sysfont);
+
+	//rtc_set_date_alarm(RTC, 1, now.month, 1, now.day);
+	rtc_set_time_alarm(RTC, 1, now.hour, 1, now.minute, 1, now.seccond + 5	);
+
 
 	TC_init(TC0, ID_TC1, 1, 4);
+	TC_init(TC1, ID_TC4, 1, 5);
 
 
   /* Insert application code here, after the board has been initialized. */
 	while (1) {
+
 		/* Entrar em modo sleep */
-    if(flag_rtc){
+    if (second_flag){
+		rtc_get_time(RTC,&now.hour,&now.minute,&now.seccond);
+		update_display(now);
+		second_flag = 0;
+	}
+	
+	if(flag_rtc){
 		pisca_led(5, 200,1);
       	flag_rtc = 0;
     }
@@ -252,6 +311,10 @@ int main (void)
     if(flag_tc){
 		pisca_led(1,10,2);
 		flag_tc = 0;
+    }
+    if(flag_tc2){
+		pisca_led(1,10,0);
+		flag_tc2 = 0;
     }
 	}
 }
