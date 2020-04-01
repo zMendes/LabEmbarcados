@@ -126,19 +126,17 @@ void update_display(calendar time){
 	char min[3];
 	char seg[3];
 
-	if (time.seccond > 59){
-		time.seccond = time.seccond % 60;
-		gfx_mono_draw_string("               ", 10,16, &sysfont);
 
-	}
 	sprintf(hora,"%lu", time.hour);
 	sprintf(min,"%lu", time.minute);
 	sprintf(seg,"%lu", time.seccond);
 	char e[] = {hora[0],hora[1],':',min[0],min[1],':',seg[0],seg[1]};
 	gfx_mono_draw_string(e, 10,16, &sysfont);
-	//gfx_mono_draw_filled_circle(104, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
+	gfx_mono_draw_filled_circle(104, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
 
-	
+
+
+
 }
 
 void TC_init(Tc * TC, int ID_TC, int TC_CHANNEL, int freq){
@@ -261,7 +259,7 @@ int main (void)
 	LED_init(1);
 	WDT->WDT_MR = WDT_MR_WDDIS;
 	
-	calendar now = {2020, 3, 27,5 ,12, 22, 55};
+	calendar now = {2020, 3, 27, 12, 22, 55 ,28};
 	RTC_init(RTC, ID_RTC, now, RTC_IER_ALREN | RTC_IER_SECEN);
 
 
