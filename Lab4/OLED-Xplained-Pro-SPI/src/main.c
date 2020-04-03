@@ -122,18 +122,11 @@ void TC4_Handler(void){
 
 void update_display(calendar time){
 	
-	char hora[3];
-	char min[3];
-	char seg[3];
+	char b[512];
 
+	sprintf(b, "%2d : %2d : %2d", time.hour, time.minute, time.seccond);
 
-	sprintf(hora,"%lu", time.hour);
-	sprintf(min,"%lu", time.minute);
-	sprintf(seg,"%lu", time.seccond);
-	char e[] = {hora[0],hora[1],':',min[0],min[1],':',seg[0],seg[1]};
-	gfx_mono_draw_string(e, 10,16, &sysfont);
-	gfx_mono_draw_filled_circle(104, 16, 16, GFX_PIXEL_SET, GFX_WHOLE);
-
+	gfx_mono_draw_string(b, 10,16, &sysfont);
 
 
 
@@ -272,7 +265,7 @@ int main (void)
 	gfx_mono_draw_string("          ", 10,16, &sysfont);
 
 	//rtc_set_date_alarm(RTC, 1, now.month, 1, now.day);
-	rtc_set_time_alarm(RTC, 1, now.hour, 1, now.minute, 1, now.seccond + 5	);
+	rtc_set_time_alarm(RTC, 1, now.hour, 1, now.minute, 1, now.seccond + 20	);
 
 
 	TC_init(TC0, ID_TC1, 1, 4);
