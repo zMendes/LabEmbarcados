@@ -11,8 +11,15 @@
 /************************************************************************/
 /* prototypes                                                           */
 /************************************************************************/
-void but1_callback(void);
-
+void but1_callback(void){
+  printf("BUT1 !\n");
+};
+void but2_callback(void){
+  printf("BUT2 !\n");
+};
+void but3_callback(void){
+  printf("BUT3 !\n");
+};
 
 /************************************************************************/
 /* LCD + TOUCH                                                          */
@@ -53,7 +60,7 @@ typedef struct {
     uint32_t x;         // posicao x 
     uint32_t y;         // posicao y
     uint8_t status;
-    uint32_t 
+    void (*func)(void); 
   } t_but;
 
 QueueHandle_t xQueueTouch;
@@ -263,6 +270,7 @@ void draw_button_new(t_but but){
 int process_touch(t_but botoes[], touchData touch, uint32_t n){
 
   for (int i=0; i<n;i++){
+    botoes[i].func();
     if ((touch.x >= botoes[i].x -botoes[i].width/2 &&	touch.x<=botoes[i].x +botoes[i].width/2) && 
       (touch.y >= botoes[i].y -botoes[i].height/2 &&	touch.y<=botoes[i].y +botoes[i].height/2) ) return i;
   }
@@ -278,13 +286,13 @@ void task_lcd(void){
 
   t_but but0 = {.width = 120, .height = 75, 
                 .colorOn = COLOR_TOMATO, .colorOff = COLOR_BLACK, 
-                .x = ILI9488_LCD_WIDTH/2, .y = 80, .status =1 };
+                .x = ILI9488_LCD_WIDTH/2, .y = 80, .status =1, .func = &but1_callback};
   t_but but2 = {.width = 120, .height = 75, 
                 .colorOn = COLOR_CYAN, .colorOff = COLOR_BLACK, 
-                .x = ILI9488_LCD_WIDTH/2, .y = 180, .status =1  };
+                .x = ILI9488_LCD_WIDTH/2, .y = 180, .status =1, .func = &but2_callback};
   t_but but3 = {.width = 120, .height = 75, 
                 .colorOn = COLOR_DARKVIOLET, .colorOff = COLOR_BLACK, 
-                .x = ILI9488_LCD_WIDTH/2, .y = 280, .status =1  };
+                .x = ILI9488_LCD_WIDTH/2, .y = 280, .status =1, .func = &but3_callback};
 
   t_but botoes[] = {but0, but2, but3};
 
