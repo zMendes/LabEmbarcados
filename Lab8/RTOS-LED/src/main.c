@@ -267,8 +267,9 @@ static void task_uartRX(void *pvpParameters){
     int i =0;
     while(1){
       if (xQueueReceive(xQueueChar,&letter,( TickType_t )  100 / portTICK_PERIOD_MS)){
-        if (letter==0){
+        if (letter=='\n'){
           word[i] =0;
+		  printf("Enviou commando");
           xQueueSend(xQueueCommand,&word,0);
           i =0;
         } else {
@@ -283,10 +284,18 @@ static void task_execute(void *pvpParameters){
     char command[32];
     while(1){
       if (xQueueReceive(xQueueCommand,&command, 100 / portTICK_PERIOD_MS)){
+		  printf("Dentro do receive command");
+		  
         if (strcmp(command, "led 0 toggle")==0) led_toggle(LED_PIO,LED_PIO_ID,LED_PIO_IDX_MASK);
         else if (strcmp(command, "led 1 toggle")==0) led_toggle(LED1_PIO,LED1_PIO_ID,LED1_PIO_IDX_MASK);
         else if (strcmp(command, "led 2 toggle")==0) led_toggle(LED2_PIO,LED2_PIO_ID,LED2_PIO_IDX_MASK);
         else if (strcmp(command, "led 3 toggle")==0) led_toggle(LED3_PIO,LED3_PIO_ID,LED3_PIO_IDX_MASK);
+        else if (strcmp(command, "led 1 on")==0) pio_clear(LED1_PIO,LED1_PIO_IDX_MASK);
+        else if (strcmp(command, "led 1 off")==0) pio_set(LED2_PIO,LED2_PIO_IDX_MASK);
+        else if (strcmp(command, "led 2 off")==0) pio_set(LED3_PIO,LED3_PIO_IDX_MASK);
+        else if (strcmp(command, "led 2 on")==0) pio_clear(LED3_PIO,LED3_PIO_IDX_MASK);
+        else if (strcmp(command, "led 3 off")==0) pio_set(LED3_PIO,LED3_PIO_IDX_MASK);
+        else if (strcmp(command, "led 3 on")==0) pio_clear(LED3_PIO,LED3_PIO_IDX_MASK);
       }
     }
 }
@@ -350,7 +359,8 @@ void USART1_Handler(void){
   //  Dados disponível para leitura
   if(ret & US_IER_RXRDY){
 	  usart_serial_getchar(USART1, &c);
-	  xQueueSend(xQueueChar,&c,0);
+	  
+	  xQueueSendFromISR(xQueueChar,&c,0);
   // -  Transmissoa finalizada
   } else if(ret & US_IER_TXRDY){
 
@@ -366,13 +376,15 @@ uint32_t usart1_puts(uint8_t *pstring){
 }
 
 int main(void) {
+	
+	  xQueueChar = xQueueCreate(32,sizeof(char));
+	  xQueueCommand = xQueueCreate(5,sizeof(char)*32);
+	  
 	/* Initialize the SAM system */
 	sysclk_init();
 	board_init();
 	led_init();
 
-  xQueueChar = xQueueCreate(32,sizeof(char));
-  xQueueCommand = xQueueCreate(5,sizeof(char)*32);
 
 	USART1_init();
 	/* Output demo information. */
@@ -382,10 +394,10 @@ int main(void) {
 
 
 	/* Create task to monitor processor activity */
-	if (xTaskCreate(task_monitor, "Monitor", TASK_MONITOR_STACK_SIZE, NULL,
-			TASK_MONITOR_STACK_PRIORITY, NULL) != pdPASS) {
-		printf("Failed to create Monitor task\r\n");
-	}
+	//if (xTaskCreate(task_monitor, "Monitor", TASK_MONITOR_STACK_SIZE, NULL,
+		//	TASK_MONITOR_STACK_PRIORITY, NULL) != pdPASS) {
+		//printf("Failed to create Monitor task\r\n");
+	//}
 
 	/* Create task to make led blink */
 	if (xTaskCreate(task_led, "Led", TASK_LED_STACK_SIZE, NULL,
@@ -405,8 +417,7 @@ int main(void) {
         printf("Falha ao criar task_uartRX\r\n");
   }
 
-    // Criando a task que executa comandos, EXECUTE.
-  if (xTaskCreate(task_execute, "execite", TASK_EXECUTE_STACK_SIZE, NULL, TASK_EXECUTE_STACK_PRIORITY, NULL) != pdPASS) {
+  if (xTaskCreate(task_execute, "execute", TASK_EXECUTE_STACK_SIZE, NULL, TASK_EXECUTE_STACK_PRIORITY, NULL) != pdPASS) {
         printf("Falha ao criar task_execute\r\n");
   }
 	/* Start the scheduler. */
